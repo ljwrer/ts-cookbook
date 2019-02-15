@@ -126,4 +126,104 @@
 
 - 把类当做接口使用
 
+## 函数
+
+### 书写完整函数类型
+
+- 包含参数类型和返回值类型
+
+	- 每个参数指定一个名字和类型。 这个名字只是为了增加可读性
+	- 使用( =>)符号标识返回值类型
+
+### 可选参数
+
+- （?）标识
+
+### this
+
+- this参数
+
+	- 提供一个显式的 this参数。 this参数是个假的参数，它出现在参数列表的最前面
+	- this参数在回调函数里
+
+		- 库函数的作者要指定 this的类型
+
+### 重载
+
+- 为同一个函数提供多个函数类型定义来进行函数重载
+- 在定义重载的时候，一定要把最精确的定义放在最前面
+
+## 范型
+
+### 泛型变量
+
+- Array<T>
+- T[]
+
+### 泛型类型
+
+- 泛型函数的类型与非泛型函数的类型没什么不同，只是有一个类型参数在最前面
+
+  function identity<T>(arg: T): T {
+      return arg;
+  }
+
+- 泛型接口
+
+	- 对象字面量形式
+
+	  interface GenericIdentityFn {
+	      <T>(arg: T): T;
+	  }
+
+	- 传入一个类型参数来指定泛型类型
+
+	  interface GenericIdentityFn<T> {
+	      (arg: T): T;
+	  }
+
+### 泛型类
+
+class GenericNumber<T> {
+    zeroValue: T;
+    add: (x: T, y: T) => T;
+}
+
+- 类的静态属性不能使用这个泛型类型
+
+### 泛型约束
+
+- extends实现约束
+
+  interface Lengthwise {
+      length: number;
+  }
+  
+  function loggingIdentity<T extends Lengthwise>(arg: T): T {
+      console.log(arg.length);
+      return arg;
+  }
+
+- 在泛型约束中使用类型参数
+
+	- keyof
+
+	  function getProperty<T, K extends keyof T>(obj: T, key: K) {
+	      return obj[key];
+	  }
+	  
+	  let x = { a: 1, b: 2, c: 3, d: 4 };
+	  
+	  getProperty(x, "a"); // okay
+	  getProperty(x, "m"); // error
+
+	- 在泛型里使用类类型
+
+	  function create<T>(c: {new(): T; }): T {
+	      return new c();
+	  }
+	  function createInstance<A extends Animal>(c: new () => A): A {
+	      return new c();
+	  }
+
 *XMind: ZEN - Trial Version*
