@@ -1960,3 +1960,479 @@ import { b } from "./moduleB"
 ##### exclude
 
 如果你想利用 `“exclude”`排除某些文件，甚至你想指定所有要编译的文件列表，请使用`“files”`
+
+
+
+---
+
+
+
+## 17. 声明合并
+
+声明合并”是指编译器将针对同一个名字的两个独立声明合并为单一声明。 合并后的声明同时拥有原先两个声明的特性。 任何数量的声明都可被合并；不局限于两个声明。
+
+> 这不是一种良好的模式
+
+### 基础概念
+
+实体：
+
+- namespace
+- type
+  - class
+  - enum
+  - interface
+  - type alias
+- value
+  - namespace
+  - class
+  - Enum
+  - function
+  - Variable
+
+### 合并接口
+
+把双方的成员放到一个同名的接口里
+
+- 非函数的成员应该是唯一
+  - 如果不是唯一的，那么它们必须是相同的类型
+- 每个同名函数声明都会被当成这个函数的一个重载
+  - 后面的接口具有更高的优先级
+  - 若参数的类型是 *单一*的字符串字面量，则提升到重载列表的最顶端
+
+```typescript
+interface Document {
+    createElement(tagName: any): Element;
+}
+interface Document {
+    createElement(tagName: "div"): HTMLDivElement;
+    createElement(tagName: "span"): HTMLSpanElement;
+}
+interface Document {
+    createElement(tagName: string): HTMLElement;
+    createElement(tagName: "canvas"): HTMLCanvasElement;
+}
+// canvas div span 提升
+interface Document {
+    createElement(tagName: "canvas"): HTMLCanvasElement;
+    createElement(tagName: "div"): HTMLDivElement;
+    createElement(tagName: "span"): HTMLSpanElement;
+    createElement(tagName: string): HTMLElement;
+    createElement(tagName: any): Element;
+}
+```
+
+
+
+### 合并命名空间
+
+- 模块导出的同名接口进行合并
+- 非导出成员仅在其原有的（合并前的）命名空间内可见
+
+
+
+### 命名空间与类和函数和枚举类型合并
+
+TypeScript使用这个功能去实现一些JavaScript里的设计模式
+
+#### 合并命名空间和类
+
+##### 内部类
+
+```typescript
+class Album {
+    label: Album.AlbumLabel;
+}
+namespace Album {
+    export class AlbumLabel { }
+}
+```
+
+##### 扩展函数
+
+```typescript
+function buildLabel(name: string): string {
+    return buildLabel.prefix + name + buildLabel.suffix;
+}
+
+namespace buildLabel {
+    export let suffix = "";
+    export let prefix = "Hello, ";
+}
+
+console.log(buildLabel("Sam Smith"))
+```
+
+##### 扩展枚举
+
+```typescript
+enum Color {
+    red = 1,
+    green = 2,
+    blue = 4
+}
+
+namespace Color {
+    export function mixColor(colorName: string) {
+        if (colorName == "yellow") {
+            return Color.red + Color.green;
+        }
+        else if (colorName == "white") {
+            return Color.red + Color.green + Color.blue;
+        }
+        else if (colorName == "magenta") {
+            return Color.red + Color.blue;
+        }
+        else if (colorName == "cyan") {
+            return Color.green + Color.blue;
+        }
+    }
+}
+```
+
+
+
+### 非法的合并
+
+类不能与其它类或变量合并
+
+
+
+### 模块扩展
+
+使用declare声明模块扩展
+
+使用interface扩展类
+
+```typescript
+// user.ts
+export class User {
+  login () {}
+}
+// index.ts
+import { User } from '@/user'
+declare module '@/user' {
+  interface User {
+    logout: () => void
+  }
+}
+User.prototype.logout = function () {}
+```
+
+模块名的解析和用 `import`/ `export`解析模块标识符的方式是一致的
+
+当这些声明在扩展中合并时，就好像在原始位置被声明了一样。
+
+你不能在扩展中声明新的顶级声明－仅可以扩展模块中已经存在的声明。
+
+#### 全局扩展
+
+```typescript
+declare global {
+    interface Array<T> {
+        toObservable(): Observable<T>;
+    }
+}
+```
+
+
+
+---
+
+
+
+## 18.JSX
+
+### 基本用法
+
+1. 给文件一个`.tsx`扩展名
+2. 启用`jsx`选项
+
+| 模式           | 输入      | 输出                         | 输出文件扩展名 |
+| :------------- | :-------- | :--------------------------- | :------------- |
+| `preserve`     | `<div />` | `<div />`                    | `.jsx`         |
+| `react`        | `<div />` | `React.createElement("div")` | `.js`          |
+| `react-native` | `<div />` | `<div />`                    | `.js`          |
+
+>*React标识符是写死的硬编码，所以你必须保证React（大写的R）是可用的*
+
+### `as`操作符
+
+TypeScript在`.tsx`文件里禁用了使用尖括号的类型断言
+
+#### 类型检查
+
+##### 固有元素
+
+```typescript
+declare namespace JSX {
+    interface IntrinsicElements {
+        div: any
+    }
+}
+declare namespace JSX {
+    interface IntrinsicElements {
+        [elemName: string]: any;
+    }
+}  
+```
+
+##### 基于值的元素
+
+作用域里按标识符查找
+
+```typescript
+import MyComponent from "./myComponent";
+                                
+<MyComponent />; // 正确
+<SomeOtherComponent />; // 错误
+```
+
+1. 无状态函数组件 (SFC)
+2. 类组件
+
+*类组件*
+
+扩展用来限制JSX的类型以符合相应的接口
+
+```typescript
+declare namespace JSX {
+    interface ElementClass {
+    	render: any;
+    }
+}
+```
+
+##### 属性类型检查
+
+*固有元素*
+
+```typescript
+declare namespace JSX {
+    interface IntrinsicElements {
+    	foo: { bar?: boolean }
+    }
+}
+<foo bar />;  
+```
+
+*基于值的元素*
+
+1. JSX.ElementAttributesProperty指定
+2. 类元素构造函数或SFC调用的第一个参数的类型
+
+```typescript
+declare namespace JSX {
+    interface ElementAttributesProperty {
+    	props; // 指定用来使用的属性名
+    }
+}
+class MyComponent {
+    // 在元素实例类型上指定属性
+    props: {
+    	foo?: string;
+    }
+}
+// `MyComponent`的元素属性类型为`{foo?: string}`
+<MyComponent foo="bar" />
+```
+
+- 如果一个属性名不是个合法的JS标识符（像`data-*`属性），并且它没出现在元素属性类型里时不会当做一个错误。
+- 使用`JSX.IntrinsicAttributes`接口来指定额外的属性，这些额外的属性通常不会被组件的props或arguments使用 - 比如React里的`key`
+  - 支持`JSX.IntrinsicClassAttributes<T>`
+    - `Ref<T>`
+
+##### 子孙类型检查
+
+使用JSX.ElementAttributesProperty声明props
+
+SFC使用`JSX.ElementChildrenAttribute`声明 children
+
+```typescript
+declare namespace JSX {
+    interface ElementChildrenAttribute {
+    	children: {};  // specify children name to use
+    }
+}
+const CustomComp = (props) => <div>{props.children}</div>
+
+
+```
+
+类组件使用`PropsType`声明children
+
+```typescript
+interface PropsType {
+    children: JSX.Element
+    name: string
+}
+
+class Component extends React.Component<PropsType, {}> {
+    render() {
+        return (
+            <h2>
+            {this.props.children}
+            </h2>
+        )
+    }
+}
+```
+
+
+
+### JSX结果类型
+
+默认地JSX表达式结果的类型为`any`
+
+你可以自定义这个类型，通过指定`JSX.Element`接口。 然而，不能够从接口里检索元素，属性或JSX的子元素的类型信息。 它是一个黑盒。
+
+
+
+### React整合
+
+```typescript
+/// <reference path="react.d.ts" />
+
+interface Props {
+    foo: string;
+}
+
+class MyComponent extends React.Component<Props, {}> {
+    render() {
+    	return <span>{this.props.foo}</span>
+    }
+}
+```
+
+
+
+### 工厂函数
+
+`jsx: react`编译选项使用的工厂函数是可以配置的。可以使用`jsxFactory`命令行选项，或内联的`@jsx`注释指令在每个文件上设置
+
+```typescript
+import preact = require("preact");
+/* @jsx preact.h */
+const x = <div />;
+```
+
+工厂函数的选择同样会影响`JSX`命名空间的查找（类型检查）
+
+> 本章需要实际应用一下
+
+
+
+## 19. 装饰器
+
+能够被附加到[类声明](https://www.tslang.cn/docs/handbook/decorators.html#class-decorators)，[方法](https://www.tslang.cn/docs/handbook/decorators.html#method-decorators)， [访问符](https://www.tslang.cn/docs/handbook/decorators.html#accessor-decorators)，[属性](https://www.tslang.cn/docs/handbook/decorators.html#property-decorators)或[参数](https://www.tslang.cn/docs/handbook/decorators.html#parameter-decorators)上
+
+在运行时被调用
+
+#### 装饰器组合
+
+多个装饰器可以同时应用到一个声明上
+
+```typescript
+@f
+@g
+x
+```
+
+(*f* ∘ *g*)(*x*)等同于*f*(*g*(*x*))
+
+1. 由上至下依次对装饰器表达式求值。
+2. 求值的结果会被当作函数，由下至上依次调用。
+
+*执行顺序*
+
+```typescript
+function f() {
+    console.log("f(): evaluated");
+    return function (target, propertyKey: string, descriptor: PropertyDescriptor) {
+        console.log("f(): called");
+    }
+}
+
+function g() {
+    console.log("g(): evaluated");
+    return function (target, propertyKey: string, descriptor: PropertyDescriptor) {
+        console.log("g(): called");
+    }
+}
+
+class C {
+    @f()
+    @g()
+    method() {}
+}
+
+// f(): evaluated
+// g(): evaluated
+// g(): called
+// f(): called
+```
+
+#### 装饰器求值
+
+1. *参数装饰器*，然后依次是*方法装饰器*，*访问符装饰器*，或*属性装饰器*应用到每个实例成员。
+2. *参数装饰器*，然后依次是*方法装饰器*，*访问符装饰器*，或*属性装饰器*应用到每个静态成员。
+3. *参数装饰器*应用到构造函数。
+4. *类装饰器*应用到类。
+
+#### 类装饰器
+
+类装饰器不能用在声明文件中( `.d.ts`)，也不能用在任何外部上下文中（比如`declare`的类）
+
+类的构造函数作为其唯一的参数
+
+```typescript
+function classDecorator(constructor){
+  constructor
+  constructor.prototype
+  return class 
+}
+```
+
+> 修改构造器和原型
+>
+> 使用返回直接修改类重载构造函数
+
+#### 方法装饰器
+
+监视，修改或者替换方法定义
+
+方法装饰器表达式会在运行时当作函数被调用，传入下列3个参数：
+
+1. 对于静态成员来说是类的构造函数，对于实例成员是类的原型对象。
+   - 因为静态成员挂载在构造函数，而共享的实例方法挂载在原型对象上
+2. 成员的名字。
+3. 成员的*属性描述符*。
+
+如果方法装饰器返回一个值，它会被用作方法的*属性描述符*
+
+```typescript
+function methodDecorator(constructor,propertyKey:string,descriptor:PropertyDescriptor){
+  
+}
+```
+
+#### 访问器装饰器
+
+1. 对于静态成员来说是类的构造函数，对于实例成员是类的原型对象。
+2. 成员的名字。
+3. 成员的*属性描述符*。
+
+不允许同时装饰一个成员的`get`和`set`访问器
+
+> 也没必要
+
+#### 属性装饰器
+
+*属性装饰器*声明在一个属性声明之前（紧靠着属性声明）。 属性装饰器不能用在声明文件中（.d.ts），或者任何外部上下文（比如 `declare`的类）里。
+
+1. 对于静态成员来说是类的构造函数，对于实例成员是类的原型对象。
+2. 成员的名字。
+
+*属性描述符*不会做为参数传入属性装饰器
+
+> 需要调用构造器才能生成实例属性
