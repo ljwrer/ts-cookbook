@@ -21,6 +21,8 @@ const list:Array<number> = [1,2,3]
 多类型数组
 
 > 某些函数的参数能用上
+>
+> 提供友好的api方便解构赋值
 
 ```typescript
 const msg:[string,number] = ["ray", 28]
@@ -2436,3 +2438,405 @@ function methodDecorator(constructor,propertyKey:string,descriptor:PropertyDescr
 *属性描述符*不会做为参数传入属性装饰器
 
 > 需要调用构造器才能生成实例属性
+>
+> 可以针对属性名存储一些信息，在运行时再通过属性名获取
+
+#### 参数装饰器
+
+*参数装饰器*声明在一个参数声明之前（紧靠着参数声明）。 参数装饰器应用于类构造函数或方法声明。 参数装饰器不能用在声明文件（.d.ts），重载或其它外部上下文（比如 `declare`的类）里。
+
+参数：
+
+1. 对于静态成员来说是类的构造函数，对于实例成员是类的原型对象。
+2. 成员的名字。
+3. 参数在函数参数列表中的索引。
+
+> 参数修饰器只能监视参数是否在方法中被声明，且返回值会被忽略
+>
+> 可以针对参数位置存储一些信息， 在运行时通过参数index获取相关的信息
+>
+> 配合方法装饰器使用
+
+#### 元数据
+
+设计阶段添加的类型信息可以在运行时使用
+
+```typescript
+let type = Reflect.getMetadata("design:type", target, propertyKey)
+```
+
+```typescript
+class Line {
+    private _p0: Point;
+    private _p1: Point;
+
+    @validate
+    @Reflect.metadata("design:type", Point)
+    set p0(value: Point) { this._p0 = value; }
+    get p0() { return this._p0; }
+
+    @validate
+    @Reflect.metadata("design:type", Point)
+    set p1(value: Point) { this._p1 = value; }
+    get p1() { return this._p1; }
+}
+
+```
+
+`emitDecoratorMetadata`开启自动注入修饰器
+
+> 运行时属性校验和依赖注入皆依赖于此特性
+
+
+
+---
+
+
+
+## 20. Mixin
+
+1. implements需要继承的类
+2. 把父类当成接口，声明其方法和属性（只需最简单的实现，占位用即可）
+3. 混入原型
+
+```typescript
+class SmartObject implements Disposable, Activatable {
+    constructor() {
+        setInterval(() => console.log(this.isActive + " : " + this.isDisposed), 500);
+    }
+
+    interact() {
+        this.activate();
+    }
+
+    // Disposable
+    isDisposed: boolean = false;
+    dispose: () => void;
+    // Activatable
+    isActive: boolean = false;
+    activate: () => void;
+    deactivate: () => void;
+}
+applyMixins(SmartObject, [Disposable, Activatable]);
+
+let smartObj = new SmartObject();
+setTimeout(() => smartObj.interact(), 1000);
+
+////////////////////////////////////////
+// In your runtime library somewhere
+////////////////////////////////////////
+
+function applyMixins(derivedCtor: any, baseCtors: any[]) {
+    baseCtors.forEach(baseCtor => {
+        Object.getOwnPropertyNames(baseCtor.prototype).forEach(name => {
+            derivedCtor.prototype[name] = baseCtor.prototype[name];
+        });
+    });
+}
+```
+
+> implements只负责声明，不包括具体的mixin实现
+
+
+
+---
+
+
+
+## 21. 三斜线指令
+
+- 包含单个XML标签的单行注释
+- *仅*可放在包含它的文件的最顶端
+
+### path
+
+`/// <reference path="..." />`
+
+用于声明文件间的依赖
+
+##### *预处理输入文件*
+
+引用路径是相对于包含它的文件的，如果不是根文件
+
+##### *错误*
+
+引用不存在的文件会报错。 一个文件用三斜线指令引用自己会报错。
+
+##### *`--noResolve`*
+
+三斜线引用会被忽略
+
+
+
+### types
+
+声明了对某个包的依赖
+
+对这些包的名字的解析与在 `import`语句里对模块名的解析类似。 
+
+可以简单地把三斜线类型引用指令当做 `import`声明的包。
+
+```typescript
+/// <reference types="node" />
+// 表明这个文件使用了 @types/node/index.d.ts里面声明的名字
+// 并且，这个包需要在编译阶段与声明文件一起被包含进来
+```
+
+仅当在你需要写一个`d.ts`文件时才使用这个指令
+
+对于那些在编译阶段生成的声明文件，编译器会自动地添加`/// <reference types="..." />`； *当且仅当*结果文件中使用了引用的包里的声明时才会在生成的声明文件里添加`/// <reference types="..." />`语句。
+
+若要在`.ts`文件里声明一个对`@types`包的依赖，使用`--types`命令行选项或在`tsconfig.json`里指定。 查看 [在`tsconfig.json`里使用`@types`，`typeRoots`和`types`](https://www.tslang.cn/docs/handbook/tsconfig-json.html#types-typeroots-and-types)了解详情。
+
+> 对外发布包需要用到
+
+
+
+### lib
+
+指定内置lib文件
+
+和*tsconfig.json*中的lib选项功能一致
+
+
+
+### no-default-lib
+
+把一个文件标记成*默认库*
+
+##### *--noLib*
+
+告诉编译器在编译过程中*不要*包含这个默认库（比如，`lib.d.ts`）
+
+##### *--skipDefaultLibCheck*
+
+忽略检查带有`/// <reference no-default-lib="true"/>`的文件
+
+
+
+### amd-module
+
+```typescript
+///<amd-module name='NamedModule'/>
+```
+
+给编译器传入一个可选的模块名, 当成amd define的模块名
+
+
+
+---
+
+
+
+## 22. JavaScript文件类型检查
+
+> 不如直接ts吧
+
+`--checkJs`对`.js`文件进行类型检查和错误提示
+
+##### 注释
+
+```javascript
+// @ts-nocheck 忽略类型检查
+
+// @ts-check 去掉--checkJs设置并添加注释来选则检查某些.js文件
+
+// @ts-ignore 忽略本行的错误
+```
+
+严格检查标记，如`noImplicitAny`，`strictNullChecks`表现可能会相对宽松
+
+### 差异
+
+##### 1. 用JSDoc类型表示类型信息
+
+```javascript
+/** @type {number} */
+var x;
+```
+
+##### 2. 属性的推断来自于类内的赋值语句
+
+对构造器属性使用注释声明或者类型断言，其他赋值则使用联合类型兼容
+
+##### 3. 构造函数等同于类
+
+es5
+
+##### 4. 支持CommonJS模块
+
+##### 5. 类，函数和对象字面量是命名空间
+
+直接给函数或者类添加属性作为静态属性或者命名空间
+
+##### 6. 对象字面量是开放的
+
+对象字面量的表现就好比具有一个默认的索引签名`[x:string]: any`
+
+##### 7. null，undefined初始化的类型是any,空数组的类型为any[]
+
+##### 8. 函数参数是默认可选的
+
+使用JSDoc注解的函数会被从这条规则里移除。 使用JSDoc可选参数语法来表示可选性
+
+```javascript
+/**
+ * @param {string} [somebody] - Somebody's name.
+ */
+function sayHello(somebody) {}
+```
+
+##### 9. 由`arguments`推断出的var-args参数声明
+
+```javascript
+/** @param {...number} args */
+function sum(/* numbers */) {}
+```
+
+##### 10. 未指定的类型参数默认为`any`
+
+*在extends语句中：*
+
+```typescript
+// @augments来明确地指定类型
+/**
+ * @augments {Component<{a: number}, State>}
+ */
+```
+
+*在JSDoc引用中：*
+
+```javascript
+// 类型数组
+/** @type{Array.<number>} */
+var y = [];
+```
+
+*在函数调用中*
+
+```javascript
+var p = new Promise((resolve, reject) => { reject() });
+p; // Promise<any>;
+```
+
+
+
+### 支持的JSDoc
+
+- `@type`
+- `@param` (or `@arg` or `@argument`)
+- `@returns` (or `@return`)
+- `@typedef`
+- `@callback`
+- `@template`
+- `@class` (or `@constructor`)
+- `@this`
+- `@extends` (or `@augments`)
+- `@enum`
+
+#### `@type`
+
+*转换*
+
+```javascript
+/**
+ * @type {number | string}
+ */
+var numberOrString = Math.random() < 0.5 ? "hello" : 100;
+var typeAssertedNumber = /** @type {number} */ (numberOrString)
+```
+
+*导入类型*
+
+```javascript
+/**
+ * @param p { import("./a").Pet }
+ */
+function walk(p) {
+    console.log(`Walking ${p.name}...`);
+}
+// 值类型提取
+/**
+ * @type {typeof import("./a").x }
+ */
+var x = require("./a").x;
+```
+
+#### `@param`和`@returns`
+
+*可选参数*
+
+```javascript
+// Parameters may be declared in a variety of syntactic forms
+/**
+ * @param {string}  p1 - A string param.
+ * @param {string=} p2 - An optional param (Closure syntax)
+ * @param {string} [p3] - Another optional param (JSDoc syntax).
+ * @param {string} [p4="test"] - An optional param with a default value // 推荐使用
+ * @return {string} This is the result
+ */
+function stringsStringStrings(p1, p2, p3, p4){
+  // TODO
+}
+```
+
+#### `@typedef`, `@callback`, 和 `@param`
+
+`@typedef`可以用来声明复杂类型
+
+```javascript
+/**
+ * @typedef {Object} SpecialType - creates a new type named 'SpecialType'
+ * @property {string} prop1 - a string property of SpecialType
+ * @property {number} prop2 - a number property of SpecialType
+ * @property {number=} prop3 - an optional number property of SpecialType
+ * @prop {number} [prop4] - an optional number property of SpecialType
+ * @prop {number} [prop5=42] - an optional number property of SpecialType with default
+ */
+/** @type {SpecialType} */
+var specialTypeObject;
+```
+
+> 远离这玩意儿，ts一行代码搞定
+
+#### `@template`
+
+使用`@template`声明泛型：
+
+> 魔鬼
+
+支持类型约束
+
+#### `@constructor`
+
+构造函数调用检查
+
+#### `@this`
+
+明确指定this
+
+#### `@extends`
+
+```javascript
+/**
+ * @template T
+ * @extends {Set<T>}
+ */
+class SortableSet extends Set {
+  // ...
+}
+// 注意@extends只作用于类。当前，无法实现构造函数继承类的情况。
+```
+
+#### `@enum`
+
+### 不支持的模式
+
+- 值空间中将对象视为类型
+- Nullable(只在启用了`strictNullChecks`检查时才启作用)
+- Non-nullable(同上)
+
+> 不推荐使用
+
+
+
