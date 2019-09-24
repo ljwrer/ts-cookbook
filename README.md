@@ -2840,3 +2840,60 @@ class SortableSet extends Set {
 
 
 
+---
+
+
+
+## 23. 通用类型
+
+#### `Partial<T>`
+
+将T的所有属性设为可选的
+
+#### `Readonly<T>`
+
+将T的所有属性设为只读的
+
+#### `Record<K,T>`
+
+Map K（通常是联合类型）的属性（实用in操作符），属性类型为T
+
+#### `Pick<T,K>`
+
+提取T中的K（通常是联合类型）的属性类型
+
+#### `Omit<T,K>`
+
+与pick相反
+
+#### `Exclude<T,U>`
+
+排除U类型
+
+T,U通常都是联合类型
+
+#### `Extract<T,U>`
+
+U为指定类型 提取T中符合U类型的属性类型
+
+T通常是联合类型
+
+#### `NonNullable<T>`
+
+排除nul l和undefiend类型
+
+#### `ReturnType<T>`
+
+T为函数类型
+
+#### `InstanceType<T>`
+
+T为类类型
+
+#### `Required<T>` 
+
+将T的所有属性设为必须的
+
+#### `ThisType<T>`
+
+不返回类型，用于指定上下文this类型
